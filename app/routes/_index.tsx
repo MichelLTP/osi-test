@@ -1,25 +1,11 @@
-import FeatureCardsGrid from "@/components/Homepage/FeatureCardsGrid/FeatureCardsGrid"
-import Header from "@/components/Layout/Header/Header"
-import Main from "@/components/Layout/Main/Main"
-import MobileMenu from "@/components/Layout/MobileMenu/MobileMenu"
-import Sidebar from "@/components/Layout/Sidebar/Sidebar"
-import { ErrorBoundaryComponent } from "@/components/ui/ErrorBoundaryComponent/ErrorBoundaryComponent"
-import { requiredUserSession } from "@/data/auth/session.server"
-import { getMenuVariables } from "@/data/menuvariables/menuvariables.server"
-import { useCloseSidebar } from "@/store/layout"
-import { LoaderFunctionArgs, redirect } from "@remix-run/node"
-import clsx from "clsx"
+import { redirect } from "@remix-run/node"
 import { useState, useEffect } from "react"
 import { Dialog, DialogTitle } from "@radix-ui/react-dialog"
 import { DialogContent } from "@/components/ui/Dialog/Dialog"
-import { json } from "@remix-run/node"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/Button/Button"
-import { useLoaderData } from "@remix-run/react"
 
 const Homepage = () => {
-  const close = useCloseSidebar((state) => state.close)
-  const { envVar } = useLoaderData<typeof loader>()
   const [isOpen, setIsOpen] = useState(false)
 
   // Use useEffect to control the dialog opening with a slight delay after component mount
@@ -75,42 +61,12 @@ const Homepage = () => {
           </Dialog>
         )}
       </AnimatePresence>
-
-      <Sidebar />
-      <MobileMenu />
-      <div
-        className={clsx(
-          "transition-[padding] duration-300 w-full p-0 m-0 h-full",
-          close ? "md:pl-sidebarClosed" : "md:pl-sidebarOpen"
-        )}
-      >
-        <Header />
-        <Main hasMobileMenu>
-          <div className="min-h-[calc(100vh-138px)] sm:min-h-[calc(100vh-62px)] w-full flex flex-col items-center justify-center transition-[width,transform] duration-300 -mt-5">
-            <FeatureCardsGrid disabledVars={envVar} />
-          </div>
-        </Main>
-      </div>
     </div>
   )
 }
 
 export default Homepage
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  await requiredUserSession(request)
-  const envVar = await getMenuVariables()
-
-  const userAgent = request.headers.get("user-agent") || ""
-  const isMobile =
-    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-      userAgent
-    )
-
-  if (isMobile) return redirect("/chatSi")
-  return json({ envVar })
-}
-
-export function ErrorBoundary() {
-  return <ErrorBoundaryComponent isMainRoute={false} />
+export async function loader() {
+  return redirect("/test")
 }
