@@ -3,12 +3,11 @@ import { installGlobals } from "@remix-run/node"
 import { defineConfig } from "vite"
 import tsconfigPaths from "vite-tsconfig-paths"
 import path from "path"
-import { remixPWA } from "@remix-pwa/dev"
 
 installGlobals()
 
 export default defineConfig({
-  plugins: [remix(), tsconfigPaths(), remixPWA()],
+  plugins: [remix(), tsconfigPaths()],
   resolve: {
     alias: [{ find: "@", replacement: path.resolve(__dirname, "app") }],
   },

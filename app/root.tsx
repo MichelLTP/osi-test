@@ -6,7 +6,6 @@ import {
   ScrollRestoration,
 } from "@remix-run/react"
 import "./tailwind.css"
-import { ManifestLink } from "@remix-pwa/sw"
 import "@fortawesome/fontawesome-svg-core/styles.css"
 import { config } from "@fortawesome/fontawesome-svg-core"
 config.autoAddCss = false
@@ -55,7 +54,6 @@ function Layout({ children }: { children: React.ReactNode }) {
           href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap"
         />
 
-        <ManifestLink />
         <Links />
         <script src=" https://cdn.jsdelivr.net/npm/hacktimer@1.1.3/HackTimer.min.js "></script>
       </head>
