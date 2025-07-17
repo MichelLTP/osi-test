@@ -19,7 +19,14 @@ export type SourceState = {
 
 const initialSourceState = {
   title: "",
-  images: [],
+  images: [
+    "/public/img/sourceImages/a.png",
+    "/public/img/sourceImages/b.png",
+    "/public/img/sourceImages/c.png",
+    "/public/img/sourceImages/d.png",
+    "/public/img/sourceImages/e.png",
+    "/public/img/sourceImages/f.png",
+  ],
   author: "",
   date: "",
   ref: 0,

@@ -11,8 +11,8 @@ import { useSource } from "@/store/sources"
 import { useState, useEffect, useRef } from "react"
 import { faClose } from "@fortawesome/free-solid-svg-icons"
 import { SourceImageProps } from "./types"
-import { LoadingComponent } from "@/components/Layout/LoadingComponent/LoadingComponent"
 import { cn } from "@/utils/shadcn/utils"
+import { LoadingComponent } from "@/components/Layout/LoadingComponent/LoadingComponent"
 
 export default function SourceImage({ fullscreen = false }: SourceImageProps) {
   const {

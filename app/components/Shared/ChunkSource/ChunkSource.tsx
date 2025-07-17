@@ -31,7 +31,7 @@ export default function ChunkSource() {
 
   return (
     <Dialog
-      open={isSourceModalOpen}
+      open={!isSourceModalOpen}
       onOpenChange={(open) => {
         if (!open) {
           handleCloseSource()
