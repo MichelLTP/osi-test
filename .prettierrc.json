@@ -1,0 +1,13 @@
+{
+  "semi": false,
+  "tabWidth": 2,
+  "useTabs": false,
+  "endOfLine": "auto",
+  "printWidth": 80,
+  "htmlWhitespaceSensitivity": "strict",
+  "bracketSpacing": true,
+  "quoteProps": "as-needed",
+  "trailingComma": "es5",
+  "jsxSingleQuote": false,
+  "singleQuote": false
+}
