@@ -1,5 +1,5 @@
 import type React from "react"
-import { useRef, useState, useCallback } from "react"
+import { useRef, useState, useCallback, useEffect } from "react"
 import { cn } from "@/lib/utils"
 
 interface CarouselImageProps {
@@ -71,6 +71,107 @@ export function CarouselImage({
     },
     [calculatePanBounds]
   )
+
+  // Add passive event listeners for touch events
+  useEffect(() => {
+    const container = imageContainerRef.current
+    if (!container) return
+
+    const handleTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      dragStartRef.current = { x: touch.clientX, y: touch.clientY }
+      isDraggingRef.current = false
+
+      // If zoomed in, prepare for panning
+      if (isZoomed && isFullscreen) {
+        e.preventDefault() // This works in non-passive listeners
+        setIsPanning(true)
+        panStartRef.current = {
+          x: touch.clientX,
+          y: touch.clientY,
+          offsetX: panOffset.x,
+          offsetY: panOffset.y,
+        }
+      }
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!dragStartRef.current) return
+
+      const touch = e.touches[0]
+      const deltaX = Math.abs(touch.clientX - dragStartRef.current.x)
+      const deltaY = Math.abs(touch.clientY - dragStartRef.current.y)
+
+      if (deltaX > 5 || deltaY > 5) {
+        isDraggingRef.current = true
+      }
+
+      // Handle panning when zoomed
+      if (isPanning && panStartRef.current && isZoomed && isFullscreen) {
+        e.preventDefault() // Prevent scrolling while panning
+        const deltaX = touch.clientX - panStartRef.current.x
+        const deltaY = touch.clientY - panStartRef.current.y
+
+        const newOffset = {
+          x: panStartRef.current.offsetX + deltaX,
+          y: panStartRef.current.offsetY + deltaY,
+        }
+
+        // Apply bounds to keep image in view
+        const clampedOffset = clampPanOffset(newOffset)
+        setPanOffset(clampedOffset)
+      }
+    }
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      // Handle touch click for zoom on mobile
+      if (
+        isFullscreen &&
+        !isDraggingRef.current &&
+        e.changedTouches.length > 0
+      ) {
+        const touch = e.changedTouches[0]
+
+        if (isZoomed) {
+          // Zoom out - reset pan offset
+          setIsZoomed(false)
+          setPanOffset({ x: 0, y: 0 })
+          onZoomChange?.(false)
+        } else if (imageContainerRef.current) {
+          const rect = imageContainerRef.current.getBoundingClientRect()
+          const x = ((touch.clientX - rect.left) / rect.width) * 100
+          const y = ((touch.clientY - rect.top) / rect.height) * 100
+
+          const clampedX = Math.max(0, Math.min(100, x))
+          const clampedY = Math.max(0, Math.min(100, y))
+
+          setZoomOrigin({ x: clampedX, y: clampedY })
+          setIsZoomed(true)
+          onZoomChange?.(true)
+        }
+      }
+
+      dragStartRef.current = null
+      setIsPanning(false)
+      panStartRef.current = null
+      setTimeout(() => {
+        isDraggingRef.current = false
+      }, 50)
+    }
+
+    // Add event listeners with proper passive/non-passive settings
+    container.addEventListener("touchstart", handleTouchStart, {
+      passive: false,
+    })
+    container.addEventListener("touchmove", handleTouchMove, { passive: false })
+    container.addEventListener("touchend", handleTouchEnd, { passive: true })
+
+    return () => {
+      container.removeEventListener("touchstart", handleTouchStart)
+      container.removeEventListener("touchmove", handleTouchMove)
+      container.removeEventListener("touchend", handleTouchEnd)
+    }
+  }, [isZoomed, isFullscreen, isPanning, panOffset, onZoomChange])
 
   const handleMouseDown = (e: React.MouseEvent) => {
     // Prevent text selection during drag
@@ -169,86 +270,6 @@ export function CarouselImage({
     if (e.key === "Enter") onClick(index)
   }
 
-  // Touch events for mobile
-  const handleTouchStart = (e: React.TouchEvent) => {
-    // Prevent default touch behavior that might cause selection
-    e.preventDefault()
-
-    const touch = e.touches[0]
-    dragStartRef.current = { x: touch.clientX, y: touch.clientY }
-    isDraggingRef.current = false
-
-    // If zoomed in, prepare for panning
-    if (isZoomed && isFullscreen) {
-      setIsPanning(true)
-      panStartRef.current = {
-        x: touch.clientX,
-        y: touch.clientY,
-        offsetX: panOffset.x,
-        offsetY: panOffset.y,
-      }
-    }
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!dragStartRef.current) return
-
-    const touch = e.touches[0]
-    const deltaX = Math.abs(touch.clientX - dragStartRef.current.x)
-    const deltaY = Math.abs(touch.clientY - dragStartRef.current.y)
-
-    if (deltaX > 5 || deltaY > 5) {
-      isDraggingRef.current = true
-    }
-
-    // Handle panning when zoomed
-    if (isPanning && panStartRef.current && isZoomed && isFullscreen) {
-      const deltaX = touch.clientX - panStartRef.current.x
-      const deltaY = touch.clientY - panStartRef.current.y
-
-      const newOffset = {
-        x: panStartRef.current.offsetX + deltaX,
-        y: panStartRef.current.offsetY + deltaY,
-      }
-
-      // Apply bounds to keep image in view
-      const clampedOffset = clampPanOffset(newOffset)
-      setPanOffset(clampedOffset)
-    }
-  }
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    // Handle touch click for zoom on mobile
-    if (isFullscreen && !isDraggingRef.current && e.changedTouches.length > 0) {
-      const touch = e.changedTouches[0]
-
-      if (isZoomed) {
-        // Zoom out - reset pan offset
-        setIsZoomed(false)
-        setPanOffset({ x: 0, y: 0 })
-        onZoomChange?.(false)
-      } else if (imageContainerRef.current) {
-        const rect = imageContainerRef.current.getBoundingClientRect()
-        const x = ((touch.clientX - rect.left) / rect.width) * 100
-        const y = ((touch.clientY - rect.top) / rect.height) * 100
-
-        const clampedX = Math.max(0, Math.min(100, x))
-        const clampedY = Math.max(0, Math.min(100, y))
-
-        setZoomOrigin({ x: clampedX, y: clampedY })
-        setIsZoomed(true)
-        onZoomChange?.(true)
-      }
-    }
-
-    dragStartRef.current = null
-    setIsPanning(false)
-    panStartRef.current = null
-    setTimeout(() => {
-      isDraggingRef.current = false
-    }, 50)
-  }
-
   return (
     <div
       ref={imageContainerRef}
@@ -267,9 +288,6 @@ export function CarouselImage({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp} // Reset if mouse leaves the element
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
       onKeyDown={!isFullscreen ? handleKeyDown : undefined}
       role={!isFullscreen ? "button" : undefined}
       tabIndex={!isFullscreen ? 0 : undefined}
@@ -281,6 +299,7 @@ export function CarouselImage({
         userSelect: "none",
         WebkitTouchCallout: "none",
         WebkitTapHighlightColor: "transparent",
+        touchAction: isZoomed && isFullscreen ? "none" : "auto", // Prevent default touch behaviors when zoomed
       }}
     >
       <img
