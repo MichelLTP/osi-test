@@ -1,3 +1,5 @@
+"use client"
+
 import type React from "react"
 import { useRef, useState, useCallback, useEffect } from "react"
 import { cn } from "@/lib/utils"
@@ -34,51 +36,27 @@ export function CarouselImage({
     offsetY: number
   } | null>(null)
 
-  // Pinch-to-zoom state
-  const [zoomScale, setZoomScale] = useState(1)
-  const pinchStartRef = useRef<{
-    distance: number
-    scale: number
-    centerX: number
-    centerY: number
-  } | null>(null)
-  const isPinchingRef = useRef(false)
-
-  // Calculate distance between two touch points
-  const getTouchDistance = (touches: TouchList) => {
-    if (touches.length < 2) return 0
-    const touch1 = touches[0]
-    const touch2 = touches[1]
-    return Math.sqrt(
-      Math.pow(touch2.clientX - touch1.clientX, 2) +
-        Math.pow(touch2.clientY - touch1.clientY, 2)
-    )
-  }
-
-  // Calculate center point between two touches
-  const getTouchCenter = (touches: TouchList) => {
-    if (touches.length < 2) return { x: 0, y: 0 }
-    const touch1 = touches[0]
-    const touch2 = touches[1]
-    return {
-      x: (touch1.clientX + touch2.clientX) / 2,
-      y: (touch1.clientY + touch2.clientY) / 2,
-    }
-  }
+  // Touch tap detection
+  const touchStartTimeRef = useRef<number>(0)
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null)
+  const TAP_THRESHOLD = 10 // pixels
+  const TAP_TIME_THRESHOLD = 300 // milliseconds
 
   // Calculate pan bounds to keep image within view
   const calculatePanBounds = useCallback(() => {
-    if (!imageContainerRef.current || zoomScale <= 1)
+    if (!imageContainerRef.current || !isZoomed)
       return { minX: 0, maxX: 0, minY: 0, maxY: 0 }
 
     const container = imageContainerRef.current
     const containerRect = container.getBoundingClientRect()
 
-    // Calculate scaled dimensions
+    // With 1.5x zoom, the image is 50% larger
+    const zoomScale = 1.5
     const scaledWidth = containerRect.width * zoomScale
     const scaledHeight = containerRect.height * zoomScale
 
     // Calculate how much we can pan in each direction
+    // The image should always touch the container edges
     const maxPanX = (scaledWidth - containerRect.width) / 2
     const maxPanY = (scaledHeight - containerRect.height) / 2
 
@@ -88,7 +66,7 @@ export function CarouselImage({
       minY: -maxPanY,
       maxY: maxPanY,
     }
-  }, [zoomScale])
+  }, [isZoomed])
 
   // Clamp pan offset within bounds
   const clampPanOffset = useCallback(
@@ -102,21 +80,39 @@ export function CarouselImage({
     [calculatePanBounds]
   )
 
-  // Update zoom state based on scale
-  useEffect(() => {
-    const wasZoomed = isZoomed
-    const nowZoomed = zoomScale > 1.1
+  // Handle tap logic for both zoom and navigation
+  const handleTap = useCallback(
+    (clientX: number, clientY: number) => {
+      if (isFullscreen) {
+        if (isZoomed) {
+          // Zoom out - reset pan offset
+          setIsZoomed(false)
+          setPanOffset({ x: 0, y: 0 })
+          onZoomChange?.(false)
+        } else {
+          // Calculate tap position relative to the image container
+          if (imageContainerRef.current) {
+            const rect = imageContainerRef.current.getBoundingClientRect()
+            const x = ((clientX - rect.left) / rect.width) * 100
+            const y = ((clientY - rect.top) / rect.height) * 100
 
-    if (wasZoomed !== nowZoomed) {
-      setIsZoomed(nowZoomed)
-      onZoomChange?.(nowZoomed)
+            // Clamp values between 0 and 100
+            const clampedX = Math.max(0, Math.min(100, x))
+            const clampedY = Math.max(0, Math.min(100, y))
 
-      // Reset pan when zooming out completely
-      if (!nowZoomed) {
-        setPanOffset({ x: 0, y: 0 })
+            setZoomOrigin({ x: clampedX, y: clampedY })
+          }
+
+          // Zoom in
+          setIsZoomed(true)
+          onZoomChange?.(true)
+        }
+      } else {
+        onClick(index)
       }
-    }
-  }, [zoomScale, isZoomed, onZoomChange])
+    },
+    [isFullscreen, isZoomed, onZoomChange, onClick, index]
+  )
 
   // Add passive event listeners for touch events
   useEffect(() => {
@@ -124,136 +120,88 @@ export function CarouselImage({
     if (!container) return
 
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        // Two finger pinch start
-        isPinchingRef.current = true
-        const distance = getTouchDistance(e.touches)
-        const center = getTouchCenter(e.touches)
+      const touch = e.touches[0]
+      const currentTime = Date.now()
 
-        if (imageContainerRef.current) {
-          const rect = imageContainerRef.current.getBoundingClientRect()
-          const x = ((center.x - rect.left) / rect.width) * 100
-          const y = ((center.y - rect.top) / rect.height) * 100
+      touchStartTimeRef.current = currentTime
+      touchStartPosRef.current = { x: touch.clientX, y: touch.clientY }
+      dragStartRef.current = { x: touch.clientX, y: touch.clientY }
+      isDraggingRef.current = false
 
-          setZoomOrigin({
-            x: Math.max(0, Math.min(100, x)),
-            y: Math.max(0, Math.min(100, y)),
-          })
-        }
-
-        pinchStartRef.current = {
-          distance,
-          scale: zoomScale,
-          centerX: center.x,
-          centerY: center.y,
-        }
-
-        e.preventDefault()
-      } else if (e.touches.length === 1) {
-        // Single finger touch
-        const touch = e.touches[0]
-        dragStartRef.current = { x: touch.clientX, y: touch.clientY }
-        isDraggingRef.current = false
-
-        // If zoomed in, prepare for panning
-        if (zoomScale > 1.1 && isFullscreen) {
-          setIsPanning(true)
-          panStartRef.current = {
-            x: touch.clientX,
-            y: touch.clientY,
-            offsetX: panOffset.x,
-            offsetY: panOffset.y,
-          }
+      // If zoomed in, prepare for panning
+      if (isZoomed && isFullscreen) {
+        e.preventDefault() // This works in non-passive listeners
+        setIsPanning(true)
+        panStartRef.current = {
+          x: touch.clientX,
+          y: touch.clientY,
+          offsetX: panOffset.x,
+          offsetY: panOffset.y,
         }
       }
     }
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (
-        e.touches.length === 2 &&
-        isPinchingRef.current &&
-        pinchStartRef.current
-      ) {
-        // Handle pinch zoom
-        e.preventDefault()
-        const currentDistance = getTouchDistance(e.touches)
-        const scaleChange = currentDistance / pinchStartRef.current.distance
-        const newScale = Math.max(
-          1,
-          Math.min(3, pinchStartRef.current.scale * scaleChange)
-        )
+      if (!dragStartRef.current || !touchStartPosRef.current) return
 
-        setZoomScale(newScale)
-      } else if (e.touches.length === 1 && !isPinchingRef.current) {
-        // Handle single finger pan
-        if (!dragStartRef.current) return
+      const touch = e.touches[0]
+      const deltaX = Math.abs(touch.clientX - dragStartRef.current.x)
+      const deltaY = Math.abs(touch.clientY - dragStartRef.current.y)
 
-        const touch = e.touches[0]
-        const deltaX = Math.abs(touch.clientX - dragStartRef.current.x)
-        const deltaY = Math.abs(touch.clientY - dragStartRef.current.y)
+      // Check if movement exceeds tap threshold
+      const tapDeltaX = Math.abs(touch.clientX - touchStartPosRef.current.x)
+      const tapDeltaY = Math.abs(touch.clientY - touchStartPosRef.current.y)
 
-        if (deltaX > 5 || deltaY > 5) {
-          isDraggingRef.current = true
+      if (tapDeltaX > TAP_THRESHOLD || tapDeltaY > TAP_THRESHOLD) {
+        // This is a drag, not a tap
+        touchStartPosRef.current = null
+      }
+
+      if (deltaX > 5 || deltaY > 5) {
+        isDraggingRef.current = true
+      }
+
+      // Handle panning when zoomed
+      if (isPanning && panStartRef.current && isZoomed && isFullscreen) {
+        e.preventDefault() // Prevent scrolling while panning
+        const deltaX = touch.clientX - panStartRef.current.x
+        const deltaY = touch.clientY - panStartRef.current.y
+
+        const newOffset = {
+          x: panStartRef.current.offsetX + deltaX,
+          y: panStartRef.current.offsetY + deltaY,
         }
 
-        // Handle panning when zoomed
-        if (
-          isPanning &&
-          panStartRef.current &&
-          zoomScale > 1.1 &&
-          isFullscreen
-        ) {
-          e.preventDefault()
-          const deltaX = touch.clientX - panStartRef.current.x
-          const deltaY = touch.clientY - panStartRef.current.y
-
-          const newOffset = {
-            x: panStartRef.current.offsetX + deltaX,
-            y: panStartRef.current.offsetY + deltaY,
-          }
-
-          const clampedOffset = clampPanOffset(newOffset)
-          setPanOffset(clampedOffset)
-        }
+        // Apply bounds to keep image in view
+        const clampedOffset = clampPanOffset(newOffset)
+        setPanOffset(clampedOffset)
       }
     }
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (isPinchingRef.current) {
-        // End pinch gesture
-        isPinchingRef.current = false
-        pinchStartRef.current = null
-      } else {
-        // Handle single touch end - only for desktop-style click zoom
-        if (
-          isFullscreen &&
-          !isDraggingRef.current &&
-          e.changedTouches.length > 0
-        ) {
-          const touch = e.changedTouches[0]
+      const currentTime = Date.now()
+      const touchDuration = currentTime - touchStartTimeRef.current
 
-          // Only do click zoom on desktop or when not using pinch
-          if (!("ontouchstart" in window) || zoomScale <= 1) {
-            if (zoomScale > 1.1) {
-              // Zoom out
-              setZoomScale(1)
-              setPanOffset({ x: 0, y: 0 })
-            } else if (imageContainerRef.current) {
-              // Zoom in
-              const rect = imageContainerRef.current.getBoundingClientRect()
-              const x = ((touch.clientX - rect.left) / rect.width) * 100
-              const y = ((touch.clientY - rect.top) / rect.height) * 100
+      // Check if this was a valid tap
+      if (
+        touchStartPosRef.current &&
+        touchDuration <= TAP_TIME_THRESHOLD &&
+        !isDraggingRef.current &&
+        e.changedTouches.length > 0
+      ) {
+        const touch = e.changedTouches[0]
+        const tapDeltaX = Math.abs(touch.clientX - touchStartPosRef.current.x)
+        const tapDeltaY = Math.abs(touch.clientY - touchStartPosRef.current.y)
 
-              const clampedX = Math.max(0, Math.min(100, x))
-              const clampedY = Math.max(0, Math.min(100, y))
-
-              setZoomOrigin({ x: clampedX, y: clampedY })
-              setZoomScale(1.5)
-            }
-          }
+        if (tapDeltaX <= TAP_THRESHOLD && tapDeltaY <= TAP_THRESHOLD) {
+          // This is a valid tap!
+          handleTap(touch.clientX, touch.clientY)
         }
       }
 
+      // Reset all touch tracking
+      touchStartTimeRef.current = 0
+      touchStartPosRef.current = null
       dragStartRef.current = null
       setIsPanning(false)
       panStartRef.current = null
@@ -275,11 +223,12 @@ export function CarouselImage({
       container.removeEventListener("touchend", handleTouchEnd)
     }
   }, [
-    zoomScale,
+    isZoomed,
     isFullscreen,
     isPanning,
     panOffset,
     onZoomChange,
+    handleTap,
     clampPanOffset,
   ])
 
@@ -291,7 +240,7 @@ export function CarouselImage({
     isDraggingRef.current = false
 
     // If zoomed in, prepare for panning
-    if (zoomScale > 1.1 && isFullscreen) {
+    if (isZoomed && isFullscreen) {
       setIsPanning(true)
       panStartRef.current = {
         x: e.clientX,
@@ -314,7 +263,7 @@ export function CarouselImage({
     }
 
     // Handle panning when zoomed
-    if (isPanning && panStartRef.current && zoomScale > 1.1 && isFullscreen) {
+    if (isPanning && panStartRef.current && isZoomed && isFullscreen) {
       const deltaX = e.clientX - panStartRef.current.x
       const deltaY = e.clientY - panStartRef.current.y
 
@@ -336,31 +285,8 @@ export function CarouselImage({
       return
     }
 
-    if (isFullscreen) {
-      if (zoomScale > 1.1) {
-        // Zoom out - reset scale and pan
-        setZoomScale(1)
-        setPanOffset({ x: 0, y: 0 })
-      } else {
-        // Calculate click position relative to the image container
-        if (imageContainerRef.current) {
-          const rect = imageContainerRef.current.getBoundingClientRect()
-          const x = ((e.clientX - rect.left) / rect.width) * 100
-          const y = ((e.clientY - rect.top) / rect.height) * 100
-
-          // Clamp values between 0 and 100
-          const clampedX = Math.max(0, Math.min(100, x))
-          const clampedY = Math.max(0, Math.min(100, y))
-
-          setZoomOrigin({ x: clampedX, y: clampedY })
-        }
-
-        // Zoom in
-        setZoomScale(1.5)
-      }
-    } else {
-      onClick(index)
-    }
+    // Use the same tap logic for mouse clicks
+    handleTap(e.clientX, e.clientY)
   }
 
   const handleMouseUp = () => {
@@ -387,7 +313,7 @@ export function CarouselImage({
         "select-none",
         isFullscreen
           ? `w-full h-full max-w-[90vw] max-h-[90vh] bg-white dark:bg-secondary ${
-              zoomScale > 1.1 ? "overflow-hidden cursor-grab" : "cursor-auto"
+              isZoomed ? "overflow-hidden cursor-grab" : "cursor-auto"
             } ${isPanning ? "cursor-grabbing" : ""}`
           : "h-[284px] w-full cursor-pointer"
       )}
@@ -407,7 +333,7 @@ export function CarouselImage({
         userSelect: "none",
         WebkitTouchCallout: "none",
         WebkitTapHighlightColor: "transparent",
-        touchAction: zoomScale > 1.1 && isFullscreen ? "none" : "auto",
+        touchAction: isZoomed && isFullscreen ? "none" : "auto", // Prevent default touch behaviors when zoomed
       }}
     >
       <img
@@ -419,14 +345,14 @@ export function CarouselImage({
           // Add select-none to image as well
           "select-none",
           isFullscreen
-            ? `max-w-full max-h-full object-contain`
+            ? `max-w-full max-h-full object-contain ${isZoomed ? "scale-150" : ""}`
             : "max-h-full w-full object-contain"
         )}
         style={
-          isFullscreen && zoomScale > 1
+          isFullscreen && isZoomed
             ? {
                 transformOrigin: `${zoomOrigin.x}% ${zoomOrigin.y}%`,
-                transform: `scale(${zoomScale}) translate(${panOffset.x}px, ${panOffset.y}px)`,
+                transform: `scale(1.5) translate(${panOffset.x}px, ${panOffset.y}px)`,
               }
             : undefined
         }
