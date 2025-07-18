@@ -59,13 +59,17 @@ const Carousel = React.forwardRef<
     },
     ref
   ) => {
-    const [carouselRef, api] = useEmblaCarousel(
-      {
-        ...opts,
-        axis: orientation === "horizontal" ? "x" : "y",
-      },
-      plugins
-    )
+    // Enhanced default options for smoother animations
+    const defaultOptions = {
+      axis: orientation === "horizontal" ? "x" : "y",
+      duration: 30, // Smooth duration
+      dragFree: false, // Snap to slides
+      containScroll: "trimSnaps" as const,
+      skipSnaps: false,
+      ...opts, // Allow overrides
+    }
+
+    const [carouselRef, api] = useEmblaCarousel(defaultOptions, plugins)
     const [canScrollPrev, setCanScrollPrev] = React.useState(false)
     const [canScrollNext, setCanScrollNext] = React.useState(false)
 
@@ -126,9 +130,10 @@ const Carousel = React.forwardRef<
         value={{
           carouselRef,
           api: api,
-          opts,
+          opts: defaultOptions,
           orientation:
-            orientation || (opts?.axis === "y" ? "vertical" : "horizontal"),
+            orientation ||
+            (defaultOptions?.axis === "y" ? "vertical" : "horizontal"),
           scrollPrev,
           scrollNext,
           canScrollPrev,
@@ -166,6 +171,12 @@ const CarouselContent = React.forwardRef<
           orientation === "horizontal" ? "-ml-4" : "-mt-4 flex-col",
           className
         )}
+        style={{
+          // Add CSS for smoother hardware acceleration
+          transform: "translate3d(0, 0, 0)",
+          backfaceVisibility: "hidden",
+          perspective: "1000px",
+        }}
         {...props}
       />
     </div>
@@ -189,6 +200,11 @@ const CarouselItem = React.forwardRef<
         orientation === "horizontal" ? "pl-4" : "pt-4",
         className
       )}
+      style={{
+        // Hardware acceleration for smoother transitions
+        transform: "translate3d(0, 0, 0)",
+        backfaceVisibility: "hidden",
+      }}
       {...props}
     />
   )
@@ -197,8 +213,9 @@ CarouselItem.displayName = "CarouselItem"
 
 const CarouselPrevious = React.forwardRef<
   HTMLButtonElement,
-  CarouselArrowProps &
-  React.ComponentProps<typeof Button>
+  React.ComponentProps<typeof Button> & {
+    arrowSize?: "sm" | "md" | "lg" | "xl"
+  }
 >(
   (
     { className, variant = "outline", size = "icon", arrowSize, ...props },
@@ -206,18 +223,16 @@ const CarouselPrevious = React.forwardRef<
   ) => {
     const { orientation, scrollPrev, canScrollPrev } = useCarousel()
 
-    //orientation === "horizontal"
-    // ? "-left-12 top-1/2 -translate-y-1/2"
-    // : "-top-12 left-1/2 -translate-x-1/2 rotate-90",
-
     return (
       <Button
         ref={ref}
         variant={variant}
         size={size}
         className={cn(
-          "absolute  h-8 w-8 rounded-full",
-          orientation === "horizontal" ? "" : "-top-12 rotate-90",
+          "absolute h-8 w-8 rounded-full transition-all duration-200 ease-out",
+          orientation === "horizontal"
+            ? "-left-12 top-1/2 -translate-y-1/2"
+            : "-top-12 left-1/2 -translate-x-1/2 rotate-90",
           className
         )}
         disabled={!canScrollPrev}
@@ -234,38 +249,42 @@ const CarouselPrevious = React.forwardRef<
 )
 CarouselPrevious.displayName = "CarouselPrevious"
 
-interface CarouselArrowProps extends React.ComponentProps<typeof Button> {
-  arrowSize?: "sm" | "md" | "lg" | "xl"
-}
-
 const CarouselNext = React.forwardRef<
   HTMLButtonElement,
-  CarouselArrowProps &
-  React.ComponentProps<typeof Button>
->(({ className, variant = "outline", size = "icon", arrowSize, ...props }, ref) => {
-  const { orientation, scrollNext, canScrollNext } = useCarousel()
+  React.ComponentProps<typeof Button> & {
+    arrowSize?: "sm" | "md" | "lg" | "xl"
+  }
+>(
+  (
+    { className, variant = "outline", size = "icon", arrowSize, ...props },
+    ref
+  ) => {
+    const { orientation, scrollNext, canScrollNext } = useCarousel()
 
-  return (
-    <Button
-      ref={ref}
-      variant={variant}
-      size={size}
-      className={cn(
-        "absolute h-8 w-8 rounded-full",
-        orientation === "horizontal" ? "" : "-bottom-12 rotate-90",
-        className
-      )}
-      disabled={!canScrollNext}
-      onClick={scrollNext}
-      {...props}
-    >
-      <ArrowRight
-        className={`${arrowSize === "lg" ? "h-6 w-6" : arrowSize === "xl" ? "h-8 w-8" : "h-4 w-4"}`}
-      />
-      <span className="sr-only">Next slide</span>
-    </Button>
-  )
-})
+    return (
+      <Button
+        ref={ref}
+        variant={variant}
+        size={size}
+        className={cn(
+          "absolute h-8 w-8 rounded-full transition-all duration-200 ease-out",
+          orientation === "horizontal"
+            ? "-right-12 top-1/2 -translate-y-1/2"
+            : "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",
+          className
+        )}
+        disabled={!canScrollNext}
+        onClick={scrollNext}
+        {...props}
+      >
+        <ArrowRight
+          className={`${arrowSize === "lg" ? "h-6 w-6" : arrowSize === "xl" ? "h-8 w-8" : "h-4 w-4"}`}
+        />
+        <span className="sr-only">Next slide</span>
+      </Button>
+    )
+  }
+)
 CarouselNext.displayName = "CarouselNext"
 
 export {

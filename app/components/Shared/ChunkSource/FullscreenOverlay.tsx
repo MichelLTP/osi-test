@@ -1,6 +1,6 @@
 import type React from "react"
-import { X } from "lucide-react"
 import { Button } from "@/components/ui/Button/Button"
+import { faClose } from "@fortawesome/free-solid-svg-icons"
 
 interface FullscreenOverlayProps {
   isOpen: boolean
@@ -28,21 +28,19 @@ export function FullscreenOverlay({
       className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
       onClick={handleOverlayClick}
       onKeyDown={handleKeyDown}
-      role="dialog"
-      tabIndex={0}
+      role="presentation"
     >
       <Button
-        className="absolute top-4 right-4 text-2xl text-white transition-colors bg-transparent hover:bg-white/20 rounded-full border-none"
+        className="absolute top-4 right-4 text-2xl text-primary transition-colors bg-transparent hover:bg-transparent hover:text-white rounded-full border-none"
         onClick={onClose}
-        variant="ghost"
-        size="icon"
-      >
-        <X className="h-6 w-6" />
-      </Button>
+        icon={faClose}
+        variant="outlineIcon"
+      />
 
       <div
         className="w-full h-full max-w-[90vw] max-h-[90vh] cursor-auto flex items-center justify-center overflow-hidden"
         onClick={(e) => e.stopPropagation()}
+        role="presentation"
       >
         {children}
       </div>

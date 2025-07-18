@@ -8,14 +8,13 @@ import {
 } from "@/components/ui/Carousel/Carousel"
 import { useSource } from "@/store/sources"
 import { useState } from "react"
-import { useThumbnailScroll } from "@/hooks/use-thumbnail-scroll"
-import { useCarouselSync } from "@/hooks/use-carousel-sync"
-
 import { LoadingComponent } from "@/components/Layout/LoadingComponent/LoadingComponent"
 import { SourceImageProps } from "./types"
-import { CarouselImage } from "./carousel-image"
-import { FullscreenOverlay } from "./fullscreen-overlay"
-import { ThumbnailNavigation } from "./thumbnail-navigation"
+import { useThumbnailScroll } from "@/hooks/useThumbnailScroll"
+import { useCarouselSync } from "@/hooks/useCarouselSync"
+import { CarouselImage } from "./CarouselImage"
+import { FullscreenOverlay } from "./FullscreenOverlay"
+import { ThumbnailNavigation } from "./ThumbnailNavigation"
 
 export default function SourceImage({ fullscreen = false }: SourceImageProps) {
   const {
@@ -28,6 +27,7 @@ export default function SourceImage({ fullscreen = false }: SourceImageProps) {
   } = useSource()
 
   const [api, setApi] = useState<CarouselApi>()
+  const [isImageZoomed, setIsImageZoomed] = useState(false)
 
   const thumbnailsContainerRef = useThumbnailScroll(
     currentImageIndex,
@@ -64,27 +64,42 @@ export default function SourceImage({ fullscreen = false }: SourceImageProps) {
 
   const closeFullscreen = () => {
     setIsSourceImageFullScreen(false)
+    setIsImageZoomed(false) // Reset zoom state when closing fullscreen
+  }
+
+  const handleZoomChange = (isZoomed: boolean) => {
+    setIsImageZoomed(isZoomed)
+  }
+
+  const carouselOptions = {
+    startIndex: currentImageIndex,
+    dragFree: false,
+    // Disable dragging when image is zoomed
+    watchDrag: !isImageZoomed,
   }
 
   const carouselContent = (
-    <Carousel setApi={setApi} opts={{ startIndex: currentImageIndex }}>
-      <CarouselContent>
-        {sourceState.images?.map((image, index) => (
-          <CarouselItem key={index}>
-            <CarouselImage
-              src={image}
-              alt={`Image ${index + 1}`}
-              index={index}
-              isFullscreen={fullscreen}
-              onClick={handleImageClick}
-            />
-          </CarouselItem>
-        ))}
-      </CarouselContent>
+    <div className="relative">
+      <Carousel setApi={setApi} opts={carouselOptions} className="w-full">
+        <CarouselContent className="-ml-0">
+          {sourceState.images?.map((image, index) => (
+            <CarouselItem key={index} className="pl-0">
+              <CarouselImage
+                src={image}
+                alt={`Image ${index + 1}`}
+                index={index}
+                isFullscreen={fullscreen}
+                onClick={handleImageClick}
+                onZoomChange={handleZoomChange}
+              />
+            </CarouselItem>
+          ))}
+        </CarouselContent>
 
-      <CarouselPrevious className="left-2 top-[42%] text-secondary bg-white/50 border-none rounded py-5 h-8 w-8" />
-      <CarouselNext className="right-2 top-[42%] text-secondary bg-white/50 border-none rounded py-5 h-8 w-8" />
-    </Carousel>
+        <CarouselPrevious className="left-2 top-[42%] text-secondary bg-white/50 hover:bg-white/70 border-none rounded py-5 h-8 w-8 transition-all duration-200 ease-out" />
+        <CarouselNext className="right-2 top-[42%] text-secondary bg-white/50 hover:bg-white/70 border-none rounded py-5 h-8 w-8 transition-all duration-200 ease-out" />
+      </Carousel>
+    </div>
   )
 
   if (fullscreen) {

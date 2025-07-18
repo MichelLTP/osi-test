@@ -20,6 +20,7 @@ const StreamingResponse: React.FC<StreamingContentProps> = ({
     setSourceState,
     setIsSourceImagesLoading,
     setIsSourceModalOpen,
+    setCurrentImageIndex,
   } = useSource()
   const fetcher = useFetcher<FetcherData>()
   const sourceImagesResponse = fetcher.data?.sourceImagesResponse
@@ -50,6 +51,7 @@ const StreamingResponse: React.FC<StreamingContentProps> = ({
         }
         document.body.style.overflowY = "hidden"
         setIsSourceModalOpen(true)
+        setCurrentImageIndex(0)
 
         if (source.images && source.images.length > 0) {
           fetcher.submit(
