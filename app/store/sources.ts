@@ -1,7 +1,7 @@
 import { SourceType } from "@/components/Shared/ChunkSource/types"
 import { create } from "zustand"
 
-export type SourceState = {
+export interface SourceState {
   sourceState: SourceType
   setSourceState: (sourceState: SourceType) => void
   resetSourceState: () => void
@@ -17,15 +17,17 @@ export type SourceState = {
   setCurrentImageIndex: (currentImageIndex: number) => void
 }
 
-const initialSourceState = {
+const initialSourceState: SourceType = {
   title: "",
   images: [
-    "/public/img/sourceImages/a.png",
-    "/public/img/sourceImages/b.png",
-    "/public/img/sourceImages/c.png",
-    "/public/img/sourceImages/d.png",
-    "/public/img/sourceImages/e.png",
-    "/public/img/sourceImages/f.png",
+    "https://picsum.photos/1200/1200?random=1",
+    "https://picsum.photos/1200/1200?random=2",
+    "https://picsum.photos/1200/1200?random=3",
+    "https://picsum.photos/1200/1200?random=4",
+    "https://picsum.photos/1200/1200?random=6",
+    "https://picsum.photos/1200/1200?random=7",
+    "https://picsum.photos/1200/1200?random=8",
+    "https://picsum.photos/1200/1200?random=9",
   ],
   author: "",
   date: "",
